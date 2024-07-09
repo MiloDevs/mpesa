@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M-Pesa Payment</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div id="app" class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center text-green-600 mb-8">M-Pesa Payment</h1>
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+            <form @submit.prevent="submitPayment" class="space-y-4">
+                <div>
+                    <label for="phoneNumber" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                    <input type="text" id="phoneNumber" v-model="phoneNumber" required
+                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500">
+                </div>
+                <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700">Amount (KES)</label>
+                    <input type="number" id="amount" v-model="amount" required
+                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500">
+                </div>
+                <button type="submit" 
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    Pay with M-Pesa
+                </button>
+            </form>
+        </div>
+        <div v-if="status" class="mt-8 max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Transaction Status</h2>
+            <p :class="{'text-green-600': status.status === 'Completed', 'text-red-600': status.status === 'Failed', 'text-yellow-600': status.status === 'Pending'}">
+                {{ status.status }}: {{ status.message }}
+            </p>
+        </div>
+    </div>
+
+    <script>
+    new Vue({
+        el: '#app',
+        data: {
+            phoneNumber: '',
+            amount: '',
+            status: null,
+            transactionId: null
+        },
+        methods: {
+            async submitPayment() {
+                try {
+                    const response = await fetch('/api/mpesa/transaction', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            phoneNumber: this.phoneNumber,
+                            partyA: this.phoneNumber,
+                            amount: this.amount,
+                            CallbackURL: 'https://www.payments.house-of-curtains.biz/callback'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+
+                    const data = await response.json();
+                    this.transactionId = data.CheckoutRequestID;
+                    this.status = { status: 'Pending', message: 'Transaction initiated. Waiting for confirmation...' };
+                    this.pollTransactionStatus();
+                } catch (error) {
+                    this.status = { status: 'Failed', message: `Error: ${error.message}` };
+                }
+            },
+            async pollTransactionStatus() {
+                const interval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`/api/mpesa/status/${this.transactionId}`);
+                        const statusData = await response.json();
+                        this.status = statusData;
+
+                        if (statusData.status === 'Completed' || statusData.status === 'Failed') {
+                            clearInterval(interval);
+                        }
+                    } catch (error) {
+                        console.error('Error polling status:', error);
+                    }
+                }, 5000); // Poll every 5 seconds
+            }
+        }
+    });
+    </script>
+</body>
+</html>
