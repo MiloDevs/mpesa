@@ -3,11 +3,18 @@ const axios = require("axios");
 require("dotenv").config();
 
 const app = express();
+app.use(express.json())
 
 const consumerKey = process.env.CONSUMER_KEY;
 const consumerSecret = process.env.CONSUMER_SECRET;
 const shortcode = process.env.SHORTCODE;
 const passkey = process.env.PASSKEY;
+
+
+// alive
+app.get('/', (req, res) => {
+  res.send('Alive!!!!');
+})
 
 // Function to get OAuth token
 const getOAuthToken = async () => {
@@ -49,6 +56,7 @@ app.post("/api/mpesa/transaction", async (req, res) => {
   const partyA = req.body.partyA;
   const amount = req.body.amount;
   const callbackURL = req.body.CallbackURL;
+  console.log(phoneNumber, partyA, amount, callbackURL);
   const url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
 
   const date = new Date();
