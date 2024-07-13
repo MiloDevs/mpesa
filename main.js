@@ -2,6 +2,7 @@ const express = require("express");
 const axios = require("axios");
 require("dotenv").config();
 const path = require("path");
+const fs = require("fs");  // Import fs for file operations
 
 const app = express();
 app.use(express.json());
@@ -11,6 +12,17 @@ const { CONSUMER_KEY, CONSUMER_SECRET, SHORTCODE, PASSKEY } = process.env;
 
 // Store transaction statuses
 const transactionStatus = new Map();
+
+// Function to write status to a JSON file with timestamp
+const writeStatusToFile = () => {
+  const statuses = {};
+  transactionStatus.forEach((value, key) => {
+    statuses[key] = value;
+  });
+
+  const filePath = path.join(__dirname, "transaction_statuses.json");
+  fs.writeFileSync(filePath, JSON.stringify(statuses, null, 2));  // Write JSON data to file with indentation
+};
 
 // Serve the HTML file
 app.get("/", (req, res) => {
@@ -36,8 +48,14 @@ const getOAuthToken = async () => {
   }
 };
 
+// Route to initiate an M-Pesa transaction
 app.post("/api/mpesa/transaction", async (req, res) => {
   const { phoneNumber, partyA, amount, CallbackURL } = req.body;
+
+  // Input validation
+  if (!phoneNumber || !partyA || !amount || !CallbackURL) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
 
   try {
     const token = await getOAuthToken();
@@ -74,13 +92,17 @@ app.post("/api/mpesa/transaction", async (req, res) => {
       message: "Waiting for user input",
     });
 
+    // Write status to file after setting it
+    writeStatusToFile();
+
     res.json(responseData);
   } catch (error) {
-    console.error("Error making transaction:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Error making transaction:", error.message);
+    res.status(500).json({ error: "Failed to initiate transaction. Please try again later." });
   }
 });
 
+// Callback route for M-Pesa to send updates on transaction status
 app.post("/callback", (req, res) => {
   console.log("Callback received:", req.body);
   const {
@@ -93,11 +115,15 @@ app.post("/callback", (req, res) => {
       status: ResultCode === 0 ? "Completed" : "Failed",
       message: ResultCode === 0 ? "Transaction successful" : ResultDesc,
     });
+
+    // Write status to file after updating it
+    writeStatusToFile();
   }
 
   res.sendStatus(200);
 });
 
+// Route to get the status of a specific transaction
 app.get("/api/mpesa/status/:transactionId", (req, res) => {
   const { transactionId } = req.params;
   const status = transactionStatus.get(transactionId) || {
@@ -105,6 +131,15 @@ app.get("/api/mpesa/status/:transactionId", (req, res) => {
     message: "No status available",
   };
   res.json(status);
+});
+
+// Route to get all transaction statuses
+app.get("/api/mpesa/statuses", (req, res) => {
+  const statuses = {};
+  transactionStatus.forEach((value, key) => {
+    statuses[key] = value;
+  });
+  res.json(statuses);
 });
 
 const PORT = process.env.PORT || 5000;
