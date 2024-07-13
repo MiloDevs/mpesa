@@ -76,7 +76,7 @@ app.post("/api/mpesa/transaction", async (req, res) => {
 
     res.json(responseData);
   } catch (error) {
-    console.error("Error making transaction:", error.message);
+    console.error("Error making transaction:", error);
     res.status(500).json({ error: error.message });
   }
 });
