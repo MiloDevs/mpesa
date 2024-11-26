@@ -125,8 +125,8 @@ app.post("/api/mpesa/transaction", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  // sanitize the phone number if it starts with 0, replace it with +254 else leave it as is
-  const sanitizedPhoneNumber = phoneNumber.replace(/\s+/g, '').replace(/^0/, '+254');
+  // sanitize the phone number if it starts with 0, replace it with 254 else leave it as is
+  const sanitizedPhoneNumber = phoneNumber.replace(/\s+/g, '').replace(/^0/, '254');
 
   try {
     const token = await getOAuthTokenWithRetry();
