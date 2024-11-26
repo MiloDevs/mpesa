@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M-Pesa Daraja API Documentation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    typography: {
+                        DEFAULT: {
+                            css: {
+                                maxWidth: '100%',
+                                pre: {
+                                    backgroundColor: '#1f2937',
+                                    color: '#fff',
+                                    borderRadius: '0.5rem',
+                                    marginTop: '1rem',
+                                    marginBottom: '1rem'
+                                },
+                                'pre code': {
+                                    backgroundColor: 'transparent',
+                                    color: 'inherit',
+                                    fontSize: '0.875rem',
+                                    lineHeight: '1.7142857'
+                                },
+                                code: {
+                                    color: '#ef4444',
+                                    backgroundColor: '#f1f5f9',
+                                    padding: '0.2em 0.4em',
+                                    borderRadius: '0.25rem',
+                                    fontWeight: '400'
+                                },
+                                'code::before': {
+                                    content: '""'
+                                },
+                                'code::after': {
+                                    content: '""'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <article class="prose prose-slate max-w-none">
+            <h1 class="text-4xl font-bold mb-8">M-Pesa Daraja API Documentation</h1>
+
+            <!-- Base URL -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-semibold mb-4">Base URL</h2>
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <code class="text-gray-200" id="base-url"></code>
+                </div>
+            </section>
+
+            <!-- Authentication -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-semibold mb-4">Authentication</h2>
+                <p class="text-gray-600">
+                    The API handles M-Pesa OAuth authentication internally. No authentication is required for the API endpoints.
+                </p>
+            </section>
+
+            <!-- Rate Limiting -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-semibold mb-4">Rate Limiting</h2>
+                <ul class="list-disc pl-5 text-gray-600">
+                    <li>100 requests per 15 minutes per IP address</li>
+                    <li>Exceeding this limit will result in a 429 (Too Many Requests) response</li>
+                </ul>
+            </section>
+
+            <!-- Endpoints -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-semibold mb-6">Endpoints</h2>
+
+                <!-- Endpoint 1: Initiate Transaction -->
+                <div class="mb-12">
+                    <h3 class="text-xl font-semibold mb-4">1. Initiate M-Pesa Transaction</h3>
+                    <p class="mb-4">Initiates an STK push to the user's phone for payment processing.</p>
+                    
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="bg-green-500 text-white px-2 py-1 rounded text-sm font-medium">POST</span>
+                        <code class="text-sm">/mpesa/transaction</code>
+                    </div>
+
+                    <!-- Request Body -->
+                    <div class="mb-6">
+                        <div class="bg-gray-800 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center px-4 py-2 bg-gray-700">
+                                <span class="text-gray-200">Request Body</span>
+                                <button onclick="copyCode(this)" class="text-gray-200 hover:text-white text-sm">Copy</button>
+                            </div>
+                            <pre class="p-4 m-0"><code class="language-json">{
+  "phoneNumber": "0712345678",    // Kenyan phone number (can start with 0, +254, or 254)
+  "partyA": "254712345678",      // Phone number in 254 format
+  "amount": 1,                    // Amount in KES
+  "CallbackURL": "https://your-domain.com/callback"  // Your callback URL
+}</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Success Response -->
+                    <div class="mb-6">
+                        <div class="bg-gray-800 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center px-4 py-2 bg-gray-700">
+                                <span class="text-gray-200">Success Response (200)</span>
+                                <button onclick="copyCode(this)" class="text-gray-200 hover:text-white text-sm">Copy</button>
+                            </div>
+                            <pre class="p-4 m-0"><code class="language-json">{
+  "MerchantRequestID": "92643-47073138-1",
+  "CheckoutRequestID": "ws_CO_27112024003235835793616321",
+  "ResponseCode": "0",
+  "ResponseDescription": "Success. Request accepted for processing",
+  "CustomerMessage": "Success. Request accepted for processing"
+}</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Error Responses -->
+                    <div class="space-y-4">
+                        <div class="bg-gray-800 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center px-4 py-2 bg-gray-700">
+                                <span class="text-gray-200">Error Response (400)</span>
+                                <button onclick="copyCode(this)" class="text-gray-200 hover:text-white text-sm">Copy</button>
+                            </div>
+                            <pre class="p-4 m-0"><code class="language-json">{
+  "error": "Missing required fields"
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint 2: Check Transaction Status -->
+                <div class="mb-12">
+                    <h3 class="text-xl font-semibold mb-4">2. Check Transaction Status</h3>
+                    <p class="mb-4">Get the current status of a specific transaction.</p>
+                    
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="bg-blue-500 text-white px-2 py-1 rounded text-sm font-medium">GET</span>
+                        <code class="text-sm">/mpesa/status/:transactionId</code>
+                    </div>
+
+                    <div class="mb-4">
+                        <h4 class="text-lg font-medium mb-2">Parameters</h4>
+                        <ul class="list-disc pl-5 text-gray-600">
+                            <li><code>transactionId</code>: The CheckoutRequestID received from the transaction initiation</li>
+                        </ul>
+                    </div>
+
+                    <!-- Success Response -->
+                    <div class="mb-6">
+                        <div class="bg-gray-800 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center px-4 py-2 bg-gray-700">
+                                <span class="text-gray-200">Success Response (200)</span>
+                                <button onclick="copyCode(this)" class="text-gray-200 hover:text-white text-sm">Copy</button>
+                            </div>
+                            <pre class="p-4 m-0"><code class="language-json">{
+  "status": "Completed",  // Possible values: "Pending", "Completed", "Failed", "Unknown"
+  "message": "Transaction successful"
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint 3: Get All Transaction Statuses -->
+                <div class="mb-12">
+                    <h3 class="text-xl font-semibold mb-4">3. Get All Transaction Statuses</h3>
+                    <p class="mb-4">Retrieve all transaction statuses.</p>
+                    
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="bg-blue-500 text-white px-2 py-1 rounded text-sm font-medium">GET</span>
+                        <code class="text-sm">/mpesa/statuses</code>
+                    </div>
+
+                    <!-- Success Response -->
+                    <div class="mb-6">
+                        <div class="bg-gray-800 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center px-4 py-2 bg-gray-700">
+                                <span class="text-gray-200">Success Response (200)</span>
+                                <button onclick="copyCode(this)" class="text-gray-200 hover:text-white text-sm">Copy</button>
+                            </div>
+                            <pre class="p-4 m-0"><code class="language-json">{
+  "ws_CO_27112024003235835793616321": {
+    "status": "Pending",
+    "message": "Waiting for user input"
+  },
+  "ws_CO_27112024003235835793616322": {
+    "status": "Completed",
+    "message": "Transaction successful"
+  }
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint 4: Health Check -->
+                <div class="mb-12">
+                    <h3 class="text-xl font-semibold mb-4">4. Health Check</h3>
+                    <p class="mb-4">Check if the API is operational and can connect to M-Pesa services.</p>
+                    
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="bg-blue-500 text-white px-2 py-1 rounded text-sm font-medium">GET</span>
+                        <code class="text-sm">/health</code>
+                    </div>
+
+                    <!-- Success Response -->
+                    <div class="mb-6">
+                        <div class="bg-gray-800 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center px-4 py-2 bg-gray-700">
+                                <span class="text-gray-200">Success Response (200)</span>
+                                <button onclick="copyCode(this)" class="text-gray-200 hover:text-white text-sm">Copy</button>
+                            </div>
+                            <pre class="p-4 m-0"><code class="language-json">{
+  "status": "OK"
+}</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Error Response -->
+                    <div class="mb-6">
+                        <div class="bg-gray-800 rounded-lg overflow-hidden">
+                            <div class="flex justify-between items-center px-4 py-2 bg-gray-700">
+                                <span class="text-gray-200">Error Response (500)</span>
+                                <button onclick="copyCode(this)" class="text-gray-200 hover:text-white text-sm">Copy</button>
+                            </div>
+                            <pre class="p-4 m-0"><code class="language-json">{
+  "status": "Error",
+  "message": "Error message details"
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Implementation Example -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-semibold mb-6">Implementation Example</h2>
+                <div class="bg-gray-800 rounded-lg overflow-hidden">
+                    <div class="flex justify-between items-center px-4 py-2 bg-gray-700">
+                        <span class="text-gray-200">JavaScript Example</span>
+                        <button onclick="copyCode(this)" class="text-gray-200 hover:text-white text-sm">Copy</button>
+                    </div>
+                    <pre class="p-4 m-0"><code class="language-javascript">
+// Example implementation code...
+// Initialize the payment handler
+class MpesaPaymentHandler {
+    constructor(baseUrl = '') {
+        this.baseUrl = baseUrl;
+    }
+
+    async initiatePayment(phoneNumber, amount) {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/mpesa/transaction`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    phoneNumber,
+                    partyA: phoneNumber,
+                    amount,
+                    CallbackURL: window.location.origin + '/callback'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to initiate transaction');
+            }
+
+            return await response.json();
+        } catch (error) {
+            throw new Error(`Payment initiation failed: ${error.message}`);
+        }
+    }
+
+    async checkTransactionStatus(transactionId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/mpesa/status/${transactionId}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch transaction status');
+            }
+            return await response.json();
+        } catch (error) {
+            throw new Error(`Status check failed: ${error.message}`);
+        }
+    }
+
+    async checkApiHealth() {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/health`);
+            if (!response.ok) {
+                throw new Error('API health check failed');
+            }
+            return await response.json();
+        } catch (error) {
+            throw new Error(`Health check failed: ${error.message}`);
+        }
+    }
+}
+
+// Usage example
+const payment = new MpesaPaymentHandler();
+
+// Example: Initiate payment
+try {
+    const paymentResult = await payment.initiatePayment('254712345678', '100');
+    console.log('Payment initiated:', paymentResult);
+    
+    // Check transaction status
+    const status = await payment.checkTransactionStatus(paymentResult.CheckoutRequestID);
+    console.log('Transaction status:', status);
+} catch (error) {
+    console.error('Payment error:', error.message);
+}
+
+// Example: Health check
+try {
+    const health = await payment.checkApiHealth();
+    console.log('API health status:', health);
+} catch (error) {
+    console.error('Health check error:', error.message);
+}
+                    </code></pre>
+                </div>
+            </section>
+
+            <!-- Notes -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-semibold mb-6">Notes</h2>
+                <div class="space-y-6">
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r">
+                        <h3 class="text-lg font-medium text-blue-800 mb-2">1. Phone Number Format</h3>
+                        <ul class="list-disc pl-5 text-blue-700">
+                            <li>The API accepts phone numbers in multiple formats</li>
+                            <li>Will automatically convert to the required format</li>
+                            <li>Supported formats: "0712345678", "+254712345678", "254712345678"</li>
+                        </ul>
+                    </div>
+                    <!-- Continue with other notes... -->
+                </div>
+            </section>
+        </article>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-javascript.min.js"></script>
+    <script>
+        const baseUrl = window.location.origin;
+        document.getElementById('base-url').textContent = baseUrl;
+        function copyCode(button) {
+            const pre = button.closest('.bg-gray-800').querySelector('pre');
+            const code = pre.textContent;
+            
+            navigator.clipboard.writeText(code).then(() => {
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                button.textContent = 'Failed to copy';
+            });
+        }
+    </script>
+</body>
+</html>

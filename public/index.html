@@ -50,12 +50,17 @@
             status: null,
             transactionId: null,
             loading: false,
-            error: null
+            error: null,
+            pollInterval: null
         },
         methods: {
             async submitPayment() {
                 this.loading = true;
                 this.error = null;
+                if (this.pollInterval) {
+                    clearInterval(this.pollInterval);
+                }
+                
                 try {
                     const response = await fetch('/api/mpesa/transaction', {
                         method: 'POST',
@@ -66,42 +71,71 @@
                             phoneNumber: this.phoneNumber,
                             partyA: this.phoneNumber,
                             amount: this.amount,
-                            CallbackURL: 'https://payments-3d33.onrender.com/callback'
+                            CallbackURL: window.location.origin + '/callback'
                         })
                     });
 
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error);
+                        throw new Error('Failed to initiate transaction');
                     }
 
                     const data = await response.json();
                     this.transactionId = data.CheckoutRequestID;
-                    this.status = { status: 'Pending', message: 'Transaction initiated. Waiting for confirmation...' };
-                    this.pollTransactionStatus();
+                    this.status = { 
+                        status: 'Pending', 
+                        message: 'Please check your phone for the STK push...' 
+                    };
+                    
+                    // Start polling immediately
+                    await this.pollTransactionStatus();
                 } catch (error) {
-                    this.error = `Error: ${error.message}`;
-                    this.status = null;
+                    this.error = error.message;
                 } finally {
                     this.loading = false;
                 }
             },
+            
             async pollTransactionStatus() {
-                const interval = setInterval(async () => {
+                const pollStatus = async () => {
                     try {
                         const response = await fetch(`/api/mpesa/status/${this.transactionId}`);
+                        if (!response.ok) throw new Error('Failed to fetch status');
+                        
                         const statusData = await response.json();
-                        this.status = statusData;
-
-                        if (statusData.status === 'Completed' || statusData.status === 'Failed') {
-                            clearInterval(interval);
+                        console.log('Status update:', statusData); // Debug log
+                        
+                        // Only update if we got a valid status
+                        if (statusData && statusData.status !== 'Unknown') {
+                            this.status = statusData;
+                            
+                            // Stop polling on final states
+                            if (['Completed', 'Failed'].includes(statusData.status)) {
+                                if (this.pollInterval) {
+                                    clearInterval(this.pollInterval);
+                                    this.pollInterval = null;
+                                }
+                            }
                         }
                     } catch (error) {
-                        console.error('Error polling status:', error);
+                        console.error('Polling error:', error);
                         this.error = 'Error checking transaction status';
-                        clearInterval(interval);
+                        if (this.pollInterval) {
+                            clearInterval(this.pollInterval);
+                            this.pollInterval = null;
+                        }
                     }
-                }, 5000);
+                };
+
+                // Poll immediately once
+                await pollStatus();
+                
+                // Then set up interval
+                this.pollInterval = setInterval(pollStatus, 3000); // Poll every 3 seconds
+            }
+        },
+        beforeDestroy() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
             }
         }
     });

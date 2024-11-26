@@ -6,9 +6,11 @@ const fs = require("fs");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const NodeCache = require("node-cache");
+const { createClient } = require('redis');
 
 const app = express();
 app.use(express.json());
+app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
 app.use(express.static(path.join(__dirname, "public")));
 app.use(cors());
 
@@ -21,7 +23,6 @@ const BASE_URL =
     : "https://sandbox.safaricom.co.ke";
 
 const cache = new NodeCache({ stdTTL: 3500 });
-const transactionStatus = new Map();
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -30,10 +31,51 @@ const apiLimiter = rateLimit({
 
 app.use("/api/", apiLimiter);
 
-const writeStatusToFile = () => {
-  const statuses = Object.fromEntries(transactionStatus);
-  const filePath = path.join(__dirname, "transaction_statuses.json");
-  fs.writeFileSync(filePath, JSON.stringify(statuses, null, 2));
+app.get("/instructions", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "instructions.html"));
+});
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://redis:6379'
+});
+
+redisClient.on('error', err => console.error('Redis Client Error', err));
+redisClient.on('connect', () => console.log('Connected to Redis'));
+
+// Connect to Redis when the app starts
+(async () => {
+  await redisClient.connect();
+})();
+
+const saveTransactionStatus = async (checkoutRequestId, status) => {
+  try {
+    await redisClient.hSet('transaction_statuses', checkoutRequestId, JSON.stringify(status));
+  } catch (error) {
+    console.error('Error saving to Redis:', error);
+  }
+};
+
+const getTransactionStatus = async (checkoutRequestId) => {
+  try {
+    const status = await redisClient.hGet('transaction_statuses', checkoutRequestId);
+    return status ? JSON.parse(status) : null;
+  } catch (error) {
+    console.error('Error getting from Redis:', error);
+    return null;
+  }
+};
+
+const getAllTransactionStatuses = async () => {
+  try {
+    const statuses = await redisClient.hGetAll('transaction_statuses');
+    return Object.entries(statuses).reduce((acc, [key, value]) => {
+      acc[key] = JSON.parse(value);
+      return acc;
+    }, {});
+  } catch (error) {
+    console.error('Error getting all statuses from Redis:', error);
+    return {};
+  }
 };
 
 app.get("/", (req, res) => {
@@ -83,6 +125,9 @@ app.post("/api/mpesa/transaction", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
+  // sanitize the phone number if it starts with 0, replace it with +254 else leave it as is
+  const sanitizedPhoneNumber = phoneNumber.replace(/\s+/g, '').replace(/^0/, '+254');
+
   try {
     const token = await getOAuthTokenWithRetry();
     const url = `${BASE_URL}/mpesa/stkpush/v1/processrequest`;
@@ -102,7 +147,7 @@ app.post("/api/mpesa/transaction", async (req, res) => {
       Amount: amount,
       PartyA: partyA,
       PartyB: SHORTCODE,
-      PhoneNumber: phoneNumber,
+      PhoneNumber: sanitizedPhoneNumber,
       CallBackURL: CallbackURL,
       AccountReference: "test123",
       TransactionDesc: "Payment for XYZ",
@@ -112,12 +157,10 @@ app.post("/api/mpesa/transaction", async (req, res) => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    transactionStatus.set(responseData.CheckoutRequestID, {
+    await saveTransactionStatus(responseData.CheckoutRequestID, {
       status: "Pending",
       message: "Waiting for user input",
     });
-
-    writeStatusToFile();
 
     res.json(responseData);
   } catch (error) {
@@ -133,7 +176,7 @@ app.post("/api/mpesa/transaction", async (req, res) => {
   }
 });
 
-app.post("/callback", (req, res) => {
+app.post("/callback", async (req, res) => {
   console.log("Callback received:", req.body);
   const {
     Body: { stkCallback },
@@ -141,28 +184,26 @@ app.post("/callback", (req, res) => {
 
   if (stkCallback) {
     const { CheckoutRequestID, ResultCode, ResultDesc } = stkCallback;
-    transactionStatus.set(CheckoutRequestID, {
+    await saveTransactionStatus(CheckoutRequestID, {
       status: ResultCode === 0 ? "Completed" : "Failed",
       message: ResultCode === 0 ? "Transaction successful" : ResultDesc,
     });
-
-    writeStatusToFile();
   }
 
   res.sendStatus(200);
 });
 
-app.get("/api/mpesa/status/:transactionId", (req, res) => {
+app.get("/api/mpesa/status/:transactionId", async (req, res) => {
   const { transactionId } = req.params;
-  const status = transactionStatus.get(transactionId) || {
+  const status = await getTransactionStatus(transactionId) || {
     status: "Unknown",
     message: "No status available",
   };
   res.json(status);
 });
 
-app.get("/api/mpesa/statuses", (req, res) => {
-  const statuses = Object.fromEntries(transactionStatus);
+app.get("/api/mpesa/statuses", async (req, res) => {
+  const statuses = await getAllTransactionStatuses();
   res.json(statuses);
 });
 
@@ -173,6 +214,12 @@ app.get("/api/health", async (req, res) => {
   } catch (error) {
     res.status(500).json({ status: "Error", message: error.message });
   }
+});
+
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  await redisClient.quit();
+  process.exit(0);
 });
 
 const PORT = process.env.PORT || 5000;
